@@ -14,6 +14,38 @@ import librosa
 import easyocr
 
 
+def get_onnx_providers():
+    """
+    Get available ONNX Runtime execution providers.
+    Prioritizes GPU (CUDA) if available.
+    """
+    try:
+        import onnxruntime as ort
+        available = ort.get_available_providers()
+        
+        # Prefer GPU providers
+        preferred_order = [
+            'CUDAExecutionProvider',
+            'TensorrtExecutionProvider', 
+            'CoreMLExecutionProvider',
+            'CPUExecutionProvider'
+        ]
+        
+        providers = []
+        for p in preferred_order:
+            if p in available:
+                providers.append(p)
+        
+        if not providers:
+            providers = ['CPUExecutionProvider']
+        
+        print(f"ONNX Providers: {providers}")
+        return providers
+    except Exception as e:
+        print(f"Error getting ONNX providers: {e}")
+        return ['CPUExecutionProvider']
+
+
 class FaceProcessor:
     """
     Face embedding extraction using ArcFace (via InsightFace).
@@ -24,24 +56,71 @@ class FaceProcessor:
         self.output_dim = output_dim
         self.face_analyzer = None
         self._initialized = False
+        self._providers = None
     
     def _get_analyzer(self):
-        """Lazy initialization of InsightFace analyzer."""
+        """Lazy initialization of InsightFace analyzer with GPU support."""
         if not self._initialized:
             try:
                 from insightface.app import FaceAnalysis
                 
+                # Get available providers (GPU if available)
+                self._providers = get_onnx_providers()
+                
                 # Initialize with ArcFace model
                 self.face_analyzer = FaceAnalysis(
                     name='buffalo_l',  # Uses ArcFace model
-                    providers=['CUDAExecutionProvider', 'CPUExecutionProvider']
+                    providers=self._providers
                 )
-                self.face_analyzer.prepare(ctx_id=0, det_size=(640, 640))
+                # Use ctx_id=0 for GPU, -1 for CPU
+                ctx_id = 0 if 'CUDAExecutionProvider' in self._providers else -1
+                self.face_analyzer.prepare(ctx_id=ctx_id, det_size=(640, 640))
                 self._initialized = True
+                print(f"InsightFace initialized with ctx_id={ctx_id}, providers={self._providers}")
             except Exception as e:
                 print(f"Failed to initialize InsightFace: {e}")
+                import traceback
+                traceback.print_exc()
                 self._initialized = True  # Don't retry on failure
         return self.face_analyzer
+    
+    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
+        """
+        Preprocess image for better face detection.
+        - Resize if too small
+        - Enhance contrast
+        - Convert color space if needed
+        """
+        if image is None:
+            return None
+        
+        # Ensure image is in BGR format (OpenCV default)
+        if len(image.shape) == 2:
+            # Grayscale to BGR
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        elif image.shape[2] == 4:
+            # RGBA to BGR
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+        
+        # Get dimensions
+        h, w = image.shape[:2]
+        
+        # Resize if image is too small (face detection needs reasonable size)
+        min_size = 640
+        if h < min_size or w < min_size:
+            scale = max(min_size / h, min_size / w)
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
+            print(f"Resized image from ({w}, {h}) to ({new_w}, {new_h})")
+        
+        # Optional: enhance contrast using CLAHE
+        # lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        # lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+        # image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+        
+        return image
     
     def process(self, image_bytes: bytes) -> Optional[np.ndarray]:
         """
@@ -62,6 +141,15 @@ class FaceProcessor:
                 print("Failed to decode image")
                 return None
             
+            print(f"Original image size: {image.shape}")
+            
+            # Preprocess for better detection
+            image = self.preprocess_image(image)
+            
+            if image is None:
+                print("Image preprocessing failed")
+                return None
+            
             # Get analyzer
             analyzer = self._get_analyzer()
             if analyzer is None:
@@ -72,11 +160,23 @@ class FaceProcessor:
             faces = analyzer.get(image)
             
             if not faces or len(faces) == 0:
-                print("No face detected in image")
-                return None
+                print(f"No face detected in image (size: {image.shape})")
+                # Try with different detection sizes
+                for det_size in [(320, 320), (480, 480), (800, 800)]:
+                    analyzer.prepare(ctx_id=0 if 'CUDAExecutionProvider' in (self._providers or []) else -1, 
+                                     det_size=det_size)
+                    faces = analyzer.get(image)
+                    if faces and len(faces) > 0:
+                        print(f"Face detected with det_size={det_size}")
+                        break
+                
+                if not faces or len(faces) == 0:
+                    print("No face detected after trying multiple detection sizes")
+                    return None
             
             # Get embedding from the first (largest) face
             embedding = faces[0].embedding
+            print(f"Face detected! Embedding shape: {embedding.shape}")
             
             # Ensure it's float32 and normalized
             embedding = embedding.astype(np.float32)
@@ -95,19 +195,32 @@ class VoiceProcessor:
     """
     Voice embedding extraction using SpeechBrain ECAPA-TDNN.
     Produces 192-D speaker embeddings that are highly discriminative.
+    Falls back to MFCC if SpeechBrain fails.
     """
     
     def __init__(self, sample_rate: int = 16000):
         self.sample_rate = sample_rate
         self.encoder = None
         self._initialized = False
+        self._use_fallback = False
     
     def _get_encoder(self):
         """Lazy initialization of SpeechBrain speaker encoder."""
         if not self._initialized:
             try:
-                from speechbrain.pretrained import EncoderClassifier
+                # Check torchaudio compatibility first
                 import torch
+                import torchaudio
+                
+                # Try to check available backends (handle API changes)
+                try:
+                    if hasattr(torchaudio, 'list_audio_backends'):
+                        backends = torchaudio.list_audio_backends()
+                        print(f"Available audio backends: {backends}")
+                except Exception:
+                    pass
+                
+                from speechbrain.inference import EncoderClassifier
                 
                 # Use ECAPA-TDNN model for speaker embedding
                 self.encoder = EncoderClassifier.from_hparams(
@@ -116,12 +229,30 @@ class VoiceProcessor:
                     run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"}
                 )
                 self._initialized = True
-                print("SpeechBrain ECAPA-TDNN model loaded successfully")
+                print(f"SpeechBrain ECAPA-TDNN model loaded (device: {'cuda' if torch.cuda.is_available() else 'cpu'})")
+            except ImportError as e:
+                # Try alternative import path
+                try:
+                    import torch
+                    from speechbrain.pretrained import EncoderClassifier
+                    
+                    self.encoder = EncoderClassifier.from_hparams(
+                        source="speechbrain/spkrec-ecapa-voxceleb",
+                        savedir="data/speechbrain_models/spkrec-ecapa-voxceleb",
+                        run_opts={"device": "cuda" if torch.cuda.is_available() else "cpu"}
+                    )
+                    self._initialized = True
+                    print("SpeechBrain loaded via pretrained import path")
+                except Exception as e2:
+                    print(f"Failed to initialize SpeechBrain: {e2}")
+                    self._use_fallback = True
+                    self._initialized = True
             except Exception as e:
                 print(f"Failed to initialize SpeechBrain: {e}")
                 import traceback
                 traceback.print_exc()
-                self._initialized = True  # Don't retry on failure
+                self._use_fallback = True
+                self._initialized = True
         return self.encoder
     
     def process(self, audio_bytes: bytes) -> Optional[np.ndarray]:
@@ -150,8 +281,9 @@ class VoiceProcessor:
             
             # Get encoder
             encoder = self._get_encoder()
-            if encoder is None:
-                print("Voice encoder not initialized, falling back to MFCC")
+            
+            if encoder is None or self._use_fallback:
+                print("Using MFCC fallback for voice embedding")
                 return self._fallback_mfcc(y, sr)
             
             import torch
@@ -221,8 +353,9 @@ class DocumentProcessor:
     def __init__(self, output_dim: int = 512):
         self.output_dim = output_dim
         
-        # Initialize EasyOCR reader with GPU support
-        self.reader = easyocr.Reader(['en'], gpu=True)
+        # Initialize EasyOCR reader with GPU support if available
+        import torch
+        self.reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
         
         # Initialize face processor for document face detection
         self.face_processor = FaceProcessor()

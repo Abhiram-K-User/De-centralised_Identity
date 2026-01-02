@@ -12,6 +12,7 @@ function App() {
                     <div className="nav-brand">
                         <span className="logo">⬡</span>
                         <span className="brand-name">DID++</span>
+                        <span className="brand-tag">Decentralized</span>
                     </div>
                     <div className="nav-links">
                         <NavLink to="/" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
@@ -24,6 +25,10 @@ function App() {
                             History
                         </NavLink>
                     </div>
+                    <div className="nav-status">
+                        <span className="status-dot"></span>
+                        <span className="status-text">Sepolia</span>
+                    </div>
                 </nav>
 
                 <main className="main-content">
@@ -35,7 +40,16 @@ function App() {
                 </main>
 
                 <footer className="footer">
-                    <p>DID++ Biometric Identity System • Secured by Ethereum</p>
+                    <div className="footer-content">
+                        <p>DID++ Biometric Identity System v2.0</p>
+                        <div className="footer-links">
+                            <span>IPFS Storage</span>
+                            <span className="footer-divider">•</span>
+                            <span>Ethereum Sepolia</span>
+                            <span className="footer-divider">•</span>
+                            <span>No Database</span>
+                        </div>
+                    </div>
                 </footer>
             </div>
         </Router>

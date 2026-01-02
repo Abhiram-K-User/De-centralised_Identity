@@ -1,20 +1,28 @@
 """
 DID++ Verification API
-Handles identity verification with live biometric samples including document OCR.
+Fully decentralized identity verification using blockchain + IPFS.
+
+Verification Flow:
+1. Query blockchain for DID's metadata CID
+2. Fetch encrypted metadata from IPFS
+3. Decrypt embeddings in-memory (never written to disk)
+4. Compare live biometrics against stored embeddings
+5. Log verification proof on blockchain
 """
 
 import json
 import time
+import base64
 import numpy as np
-from typing import Optional
+from typing import Optional, Dict, Any
 from fastapi import APIRouter, File, Form, UploadFile, HTTPException, status
 from pydantic import BaseModel
 
 from app.config import config
-from app.database import get_user_by_did, log_verification
 from app.services.encryption import encryption_service, compute_sha256_bytes
 from app.services.ml_engine import ml_engine
 from app.services.blockchain import blockchain_service
+from app.services.ipfs import ipfs_service
 
 
 router = APIRouter()
@@ -35,6 +43,7 @@ class VerificationResponse(BaseModel):
     doc_text_score: float
     doc_face_score: float
     confidence_level: str
+    metadata_cid: str
     tx_hash: Optional[str] = None
     message: str
 
@@ -128,26 +137,129 @@ def text_similarity(text1: str, text2: str) -> float:
 
 def create_verification_payload(
     did: str,
+    metadata_cid: str,
     face_score: float,
     voice_score: float,
     doc_score: float,
     final_score: float,
+    confidence_level: str,
     verified: bool,
     timestamp: int
 ) -> dict:
-    """Create verification payload for blockchain."""
+    """Create verification payload for blockchain proof."""
     return {
         "action": "verify",
+        "version": "2.0.0",
         "did": did,
+        "metadata_cid": metadata_cid,
         "scores": {
-            "face": face_score,
-            "voice": voice_score,
-            "document": doc_score,
-            "final": final_score
+            "face": round(face_score, 4),
+            "voice": round(voice_score, 4),
+            "document": round(doc_score, 4),
+            "final": round(final_score, 4)
         },
+        "confidence_level": confidence_level,
         "verified": verified,
         "timestamp": timestamp
     }
+
+
+async def fetch_and_decrypt_metadata(did: str) -> Dict[str, Any]:
+    """
+    Fetch metadata from blockchain → IPFS → decrypt.
+    
+    This is the core decentralized retrieval mechanism:
+    1. Query blockchain for CID
+    2. Fetch encrypted JSON from IPFS
+    3. Decrypt embeddings in-memory
+    
+    Args:
+        did: Full DID string
+        
+    Returns:
+        Dictionary containing decrypted embeddings and metadata
+        
+    Raises:
+        HTTPException if any step fails
+    """
+    
+    # ============ Step 1: Query Blockchain for CID ============
+    
+    if blockchain_service.is_configured():
+        # Try blockchain first
+        cid, error = blockchain_service.get_metadata_cid(did)
+        if error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"DID not found on blockchain: {error}"
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Blockchain service not configured"
+        )
+    
+    if not cid:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No metadata CID found for DID: {did}"
+        )
+    
+    # ============ Step 2: Fetch from IPFS ============
+    
+    ipfs_data, error = ipfs_service.fetch_metadata(cid)
+    
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch from IPFS: {error}"
+        )
+    
+    if not ipfs_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No data found at IPFS CID: {cid}"
+        )
+    
+    # ============ Step 3: Decrypt In-Memory ============
+    
+    try:
+        # Decrypt face embedding
+        encrypted_face = ipfs_data['encrypted_face_embedding']
+        decrypted_face_bytes = encryption_service.decrypt(encrypted_face.encode('utf-8'))
+        face_embedding = bytes_to_embedding(decrypted_face_bytes)
+        
+        # Decrypt voice embedding
+        encrypted_voice = ipfs_data['encrypted_voice_embedding']
+        decrypted_voice_bytes = encryption_service.decrypt(encrypted_voice.encode('utf-8'))
+        voice_embedding = bytes_to_embedding(decrypted_voice_bytes)
+        
+        # Decrypt document data (JSON with embedding + text)
+        encrypted_doc = ipfs_data['encrypted_doc_data']
+        decrypted_doc_bytes = encryption_service.decrypt(encrypted_doc.encode('utf-8'))
+        doc_data = json.loads(decrypted_doc_bytes.decode('utf-8'))
+        
+        # Decode document embedding from base64
+        doc_embedding_bytes = base64.b64decode(doc_data['embedding'])
+        doc_embedding = bytes_to_embedding(doc_embedding_bytes)
+        doc_text = doc_data.get('text', '')
+        
+        return {
+            "cid": cid,
+            "user_id": ipfs_data.get('user_id'),
+            "did": ipfs_data.get('did'),
+            "face_embedding": face_embedding,
+            "voice_embedding": voice_embedding,
+            "doc_embedding": doc_embedding,
+            "doc_text": doc_text,
+            "created_at": ipfs_data.get('created_at')
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to decrypt metadata: {str(e)}"
+        )
 
 
 @router.post("/verify", response_model=VerificationResponse)
@@ -158,24 +270,22 @@ async def verify_identity(
     id_doc: UploadFile = File(None, description="Live ID document image (JPEG) - optional")
 ):
     """
-    Verify identity against stored biometric data.
+    Verify identity using decentralized storage.
     
-    Accepts multipart/form-data with:
-    - did: Decentralized Identifier to verify against
-    - face: Live face image (JPEG)
-    - voice: Live voice sample (WAV)
-    - id_doc: Live ID document image (JPEG) - optional for enhanced verification
+    Verification Flow:
+    1. Fetch metadata CID from blockchain
+    2. Download encrypted metadata from IPFS
+    3. Decrypt embeddings in-memory (never touches disk)
+    4. Compare live biometrics against stored embeddings
+    5. Log verification proof on blockchain
     
-    Returns verification result with scores and confidence level.
+    No local database is accessed - everything comes from IPFS + blockchain.
+    
+    Returns:
+    - Verification result with scores
+    - Confidence level
+    - Blockchain transaction hash (for successful verifications)
     """
-    
-    # Get stored user data
-    user = get_user_by_did(did)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"DID not found: {did}"
-        )
     
     # Validate file types
     validate_file(face, ALLOWED_IMAGE_TYPES, "face")
@@ -185,7 +295,18 @@ async def verify_identity(
     face_bytes = await read_and_validate_file(face)
     voice_bytes = await read_and_validate_file(voice)
     
-    # Process live biometrics
+    # ============ Step 1: Fetch & Decrypt Stored Data ============
+    
+    stored_data = await fetch_and_decrypt_metadata(did)
+    metadata_cid = stored_data['cid']
+    
+    stored_face_embedding = stored_data['face_embedding']
+    stored_voice_embedding = stored_data['voice_embedding']
+    stored_doc_embedding = stored_data['doc_embedding']
+    stored_doc_text = stored_data['doc_text']
+    
+    # ============ Step 2: Process Live Biometrics ============
+    
     live_face_embedding = ml_engine.process_face(face_bytes)
     if live_face_embedding is None:
         raise HTTPException(
@@ -200,23 +321,15 @@ async def verify_identity(
             detail="Could not process live voice sample"
         )
     
-    # Decrypt stored embeddings
-    stored_face_bytes = encryption_service.decrypt_embedding(user['face_embedding'])
-    stored_voice_bytes = encryption_service.decrypt_embedding(user['voice_embedding'])
-    stored_doc_bytes = encryption_service.decrypt_embedding(user['doc_embedding'])
+    # ============ Step 3: Compute Similarity Scores ============
     
-    # Convert to numpy arrays
-    stored_face_embedding = bytes_to_embedding(stored_face_bytes)
-    stored_voice_embedding = bytes_to_embedding(stored_voice_bytes)
-    stored_doc_embedding = bytes_to_embedding(stored_doc_bytes)
-    
-    # Compute face similarity (cosine)
+    # Face similarity (cosine)
     face_score = ml_engine.cosine_similarity(live_face_embedding, stored_face_embedding)
-    face_score = max(0.0, min(1.0, face_score))  # Clamp to [0, 1]
+    face_score = max(0.0, min(1.0, face_score))
     
-    # Compute voice similarity (cosine)
+    # Voice similarity (cosine)
     voice_score = ml_engine.cosine_similarity(live_voice_embedding, stored_voice_embedding)
-    voice_score = max(0.0, min(1.0, voice_score))  # Clamp to [0, 1]
+    voice_score = max(0.0, min(1.0, voice_score))
     
     # Document verification
     doc_text_score = 0.0
@@ -231,7 +344,6 @@ async def verify_identity(
         live_doc_embedding, live_doc_text = ml_engine.process_document(doc_bytes)
         
         # Compare extracted text with stored text
-        stored_doc_text = user.get('doc_text', '')
         doc_text_score = text_similarity(live_doc_text, stored_doc_text)
         
         # Compare face in live document with stored face
@@ -266,43 +378,54 @@ async def verify_identity(
         
         doc_score = 0.5 * doc_text_score + 0.5 * doc_face_score
     
-    # Weighted fusion
+    # ============ Step 4: Weighted Fusion ============
+    
     final_score = (
         config.FACE_WEIGHT * face_score +
         config.VOICE_WEIGHT * voice_score +
         config.DOC_WEIGHT * doc_score
     )
     
-    # Determine verification status
     verified = final_score >= config.VERIFICATION_THRESHOLD
     confidence_level = get_confidence_level(final_score)
     
-    # Prepare response
+    # ============ Step 5: Log Verification on Blockchain ============
+    
     tx_hash = None
     
-    # Log to blockchain if verified
-    if verified:
+    if verified and blockchain_service.is_configured():
         timestamp = int(time.time())
+        
+        # Create verification payload
         payload = create_verification_payload(
-            did, face_score, voice_score, doc_score,
-            final_score, verified, timestamp
+            did=did,
+            metadata_cid=metadata_cid,
+            face_score=face_score,
+            voice_score=voice_score,
+            doc_score=doc_score,
+            final_score=final_score,
+            confidence_level=confidence_level,
+            verified=verified,
+            timestamp=timestamp
         )
+        
+        # Compute verification hash
         payload_json = json.dumps(payload, sort_keys=True)
         verification_hash = compute_sha256_bytes(payload_json)
         
-        tx_hash = blockchain_service.log_verification(verification_hash, did)
+        # Log on blockchain
+        tx_hash, error = blockchain_service.log_verification(
+            did=did,
+            verification_hash=verification_hash,
+            metadata_cid=metadata_cid,
+            confidence_level=confidence_level,
+            success=verified
+        )
+        
+        if error:
+            print(f"Blockchain verification logging warning: {error}")
     
-    # Log verification attempt to database
-    log_verification(
-        did=did,
-        score=final_score,
-        face_score=face_score,
-        voice_score=voice_score,
-        doc_score=doc_score,
-        confidence_level=confidence_level,
-        verified=verified,
-        verification_tx_hash=tx_hash
-    )
+    # ============ Step 6: Return Result ============
     
     message = "Identity verified successfully" if verified else "Identity verification failed"
     
@@ -315,6 +438,56 @@ async def verify_identity(
         doc_text_score=round(doc_text_score, 4),
         doc_face_score=round(doc_face_score, 4),
         confidence_level=confidence_level,
+        metadata_cid=metadata_cid,
         tx_hash=tx_hash,
         message=message
     )
+
+
+@router.get("/lookup/{did}")
+async def lookup_did(did: str):
+    """
+    Look up a DID on the blockchain.
+    
+    Returns the DID record including:
+    - IPFS CID
+    - Identity hash
+    - Registration timestamp
+    - Active status
+    """
+    
+    if not blockchain_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Blockchain service not configured"
+        )
+    
+    # Check if DID exists
+    exists, active = blockchain_service.is_did_active(did)
+    
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"DID not found: {did}"
+        )
+    
+    # Get full record
+    record, error = blockchain_service.get_did_record(did)
+    
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch DID record: {error}"
+        )
+    
+    return {
+        "did": did,
+        "exists": exists,
+        "active": active,
+        "metadata_cid": record['metadata_cid'],
+        "identity_hash": record['identity_hash'],
+        "registered_at": record['registered_at'],
+        "updated_at": record['updated_at'],
+        "registrar": record['registrar'],
+        "ipfs_gateway_url": ipfs_service.get_gateway_url(record['metadata_cid'])
+    }

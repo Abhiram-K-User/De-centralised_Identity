@@ -34,14 +34,6 @@ function HistoryPage() {
         }
     }
 
-    const formatTimestamp = (timestamp) => {
-        try {
-            return new Date(timestamp).toLocaleString()
-        } catch {
-            return timestamp
-        }
-    }
-
     const getEventIcon = (eventType) => {
         return eventType === 'registration' ? '🔐' : '🔍'
     }
@@ -50,16 +42,36 @@ function HistoryPage() {
         if (event.event_type === 'registration') {
             return <span className="badge badge-info">Registered</span>
         }
-        return event.verified
+        return event.success
             ? <span className="badge badge-success">Verified</span>
             : <span className="badge badge-error">Failed</span>
+    }
+
+    const getConfidenceBadge = (level) => {
+        if (!level) return null
+        const classes = {
+            'VERY_HIGH': 'badge-success',
+            'HIGH': 'badge-info',
+            'MEDIUM': 'badge-warning',
+            'LOW': 'badge-error'
+        }
+        return <span className={`badge ${classes[level] || 'badge-info'}`}>{level}</span>
     }
 
     return (
         <div className="page">
             <div className="page-header">
-                <h1 className="page-title">Verification History</h1>
-                <p className="page-subtitle">View your identity activity timeline</p>
+                <h1 className="page-title">Identity History</h1>
+                <p className="page-subtitle">View your on-chain identity activity timeline</p>
+            </div>
+
+            {/* Blockchain Query Info */}
+            <div className="card" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(255, 217, 61, 0.05) 0%, rgba(255, 107, 107, 0.05) 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                    <span>⛓️</span>
+                    <span>All data queried directly from Ethereum Sepolia blockchain event logs</span>
+                    <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>No database used</span>
+                </div>
             </div>
 
             <div className="card" style={{ marginBottom: '2rem' }}>
@@ -78,7 +90,7 @@ function HistoryPage() {
                         className="btn btn-primary"
                         disabled={loading}
                     >
-                        {loading ? <span className="loader"></span> : 'Search'}
+                        {loading ? <span className="loader"></span> : '🔍 Query Blockchain'}
                     </button>
                 </form>
             </div>
@@ -91,34 +103,75 @@ function HistoryPage() {
 
             {result && (
                 <div className="animate-fade-in">
+                    {/* Identity Information Card */}
                     <div className="card" style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ marginBottom: '1rem' }}>Identity Information</h3>
-                        <div style={{ display: 'grid', gap: '0.5rem' }}>
-                            <div>
-                                <span style={{ color: 'var(--text-secondary)' }}>DID:</span>
-                                <div className="did-display" style={{ marginTop: '0.5rem' }}>{result.did}</div>
-                            </div>
-                            <div style={{ marginTop: '1rem' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>User ID:</span>
-                                <span style={{ marginLeft: '0.5rem' }}>{result.user_id}</span>
-                            </div>
-                            <div>
-                                <span style={{ color: 'var(--text-secondary)' }}>Registered:</span>
-                                <span style={{ marginLeft: '0.5rem' }}>{formatTimestamp(result.created_at)}</span>
-                            </div>
-                            {result.registration_tx_hash && (
-                                <div style={{ marginTop: '0.5rem' }}>
-                                    <p className="tx-hash">
-                                        Registration TX: <a href={`https://sepolia.etherscan.io/tx/${result.registration_tx_hash}`} target="_blank" rel="noopener noreferrer">
-                                            {result.registration_tx_hash}
-                                        </a>
-                                    </p>
-                                </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                            <h3 style={{ margin: 0 }}>Identity Record</h3>
+                            {result.active ? (
+                                <span className="badge badge-success">Active</span>
+                            ) : (
+                                <span className="badge badge-error">Inactive</span>
                             )}
+                        </div>
+                        
+                        <div style={{ display: 'grid', gap: '1rem' }}>
+                            {/* DID */}
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>DECENTRALIZED IDENTIFIER</div>
+                                <div className="did-display">{result.did}</div>
+                            </div>
+
+                            {/* IPFS CID */}
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>IPFS METADATA CID</div>
+                                <div className="did-display" style={{ background: 'rgba(118, 75, 162, 0.2)' }}>
+                                    {result.metadata_cid}
+                                </div>
+                                <a 
+                                    href={result.ipfs_gateway_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    style={{ fontSize: '0.75rem', color: 'var(--info)' }}
+                                >
+                                    View encrypted metadata on IPFS →
+                                </a>
+                            </div>
+
+                            {/* Identity Hash */}
+                            <div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>ON-CHAIN IDENTITY HASH</div>
+                                <div className="tx-hash" style={{ wordBreak: 'break-all' }}>
+                                    0x{result.identity_hash}
+                                </div>
+                            </div>
+
+                            {/* Stats Row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginTop: '0.5rem' }}>
+                                <div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Registered</div>
+                                    <div style={{ fontWeight: 500 }}>{result.registered_at_formatted}</div>
+                                </div>
+                                <div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Registrar</div>
+                                    <div className="tx-hash" style={{ fontSize: '0.75rem' }}>
+                                        <a href={`https://sepolia.etherscan.io/address/${result.registrar}`} target="_blank" rel="noopener noreferrer">
+                                            {result.registrar?.slice(0, 10)}...{result.registrar?.slice(-8)}
+                                        </a>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Verifications</div>
+                                    <div style={{ fontWeight: 500, color: 'var(--info)' }}>{result.verification_count}</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <h3 style={{ marginBottom: '1rem' }}>Activity Timeline</h3>
+                    {/* Timeline */}
+                    <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>⛓️</span>
+                        <span>Blockchain Event Timeline</span>
+                    </h3>
 
                     {result.timeline && result.timeline.length > 0 ? (
                         <div className="timeline">
@@ -129,39 +182,26 @@ function HistoryPage() {
                                             <span className="timeline-title">
                                                 {getEventIcon(event.event_type)} {event.event_type === 'registration' ? 'Identity Registered' : 'Verification Attempt'}
                                             </span>
-                                            {getStatusBadge(event)}
+                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                {getStatusBadge(event)}
+                                                {event.confidence_level && getConfidenceBadge(event.confidence_level)}
+                                            </div>
                                         </div>
-                                        <div className="timeline-time">{formatTimestamp(event.timestamp)}</div>
+                                        <div className="timeline-time">{event.timestamp_formatted}</div>
+
+                                        {event.event_type === 'registration' && event.metadata_cid && (
+                                            <div className="timeline-body" style={{ marginTop: '0.75rem' }}>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>IPFS CID:</div>
+                                                <div className="tx-hash">{event.metadata_cid}</div>
+                                            </div>
+                                        )}
 
                                         {event.event_type === 'verification' && (
-                                            <div className="timeline-body" style={{ marginTop: '1rem' }}>
-                                                <div className="score-display" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-                                                    <div className="score-item" style={{ padding: '0.75rem' }}>
-                                                        <div className="score-value" style={{ fontSize: '1rem' }}>{(event.score * 100).toFixed(1)}%</div>
-                                                        <div className="score-label">Final</div>
-                                                    </div>
-                                                    <div className="score-item" style={{ padding: '0.75rem' }}>
-                                                        <div className="score-value" style={{ fontSize: '1rem' }}>{(event.face_score * 100).toFixed(1)}%</div>
-                                                        <div className="score-label">Face</div>
-                                                    </div>
-                                                    <div className="score-item" style={{ padding: '0.75rem' }}>
-                                                        <div className="score-value" style={{ fontSize: '1rem' }}>{(event.voice_score * 100).toFixed(1)}%</div>
-                                                        <div className="score-label">Voice</div>
-                                                    </div>
-                                                    <div className="score-item" style={{ padding: '0.75rem' }}>
-                                                        <div className="score-value" style={{ fontSize: '1rem' }}>{(event.doc_score * 100).toFixed(1)}%</div>
-                                                        <div className="score-label">Document</div>
-                                                    </div>
+                                            <div className="timeline-body" style={{ marginTop: '0.75rem' }}>
+                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Verification Hash:</div>
+                                                <div className="tx-hash" style={{ wordBreak: 'break-all' }}>
+                                                    0x{event.verification_hash}
                                                 </div>
-
-                                                {event.confidence_level && (
-                                                    <div style={{ marginTop: '0.5rem' }}>
-                                                        <span style={{ color: 'var(--text-muted)' }}>Confidence: </span>
-                                                        <span className={`badge ${event.confidence_level === 'VERY_HIGH' ? 'badge-success' : event.confidence_level === 'HIGH' ? 'badge-info' : 'badge-warning'}`}>
-                                                            {event.confidence_level}
-                                                        </span>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 
@@ -176,8 +216,12 @@ function HistoryPage() {
                                         )}
 
                                         {event.block_number && (
-                                            <div>
-                                                <span className="tx-hash">Block: #{event.block_number}</span>
+                                            <div style={{ marginTop: '0.25rem' }}>
+                                                <span className="tx-hash">
+                                                    Block: <a href={`https://sepolia.etherscan.io/block/${event.block_number}`} target="_blank" rel="noopener noreferrer">
+                                                        #{event.block_number}
+                                                    </a>
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -186,7 +230,7 @@ function HistoryPage() {
                         </div>
                     ) : (
                         <div className="card" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                            <p>No activity recorded yet</p>
+                            <p>No blockchain events recorded yet</p>
                         </div>
                     )}
                 </div>

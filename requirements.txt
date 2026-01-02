@@ -1,27 +1,43 @@
 # DID++ Backend Dependencies
+# Fully Decentralized Biometric Identity System
 
-# FastAPI and server
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
-python-dotenv==1.0.0
+# ============ FastAPI & Server ============
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
 
-# Database
-# SQLite is built into Python, no extra dependency needed
+# ============ Encryption ============
+cryptography>=41.0.0
 
-# Encryption
-cryptography==41.0.7
+# ============ ML/AI - Biometric Processing ============
+# Face Recognition (ArcFace via InsightFace)
+insightface>=0.7.3
 
-# ML/AI
-mediapipe==0.10.9
-opencv-python==4.8.1.78
-numpy==1.26.2
-librosa==0.10.1
-easyocr==1.7.1
+# ONNX Runtime - USE GPU VERSION FOR CUDA SUPPORT
+# Uncomment the appropriate line for your system:
+# onnxruntime>=1.20.0          # CPU only
+onnxruntime-gpu>=1.20.0        # NVIDIA GPU with CUDA 12
 
-# Blockchain
-web3==6.13.0
-eth-account==0.10.0
+# Voice Recognition (ECAPA-TDNN via SpeechBrain)
+speechbrain>=1.0.0
+torch>=2.0.0
+torchaudio>=2.0.0
 
-# Data validation
-pydantic==2.5.2
+# Image/Audio Processing
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+librosa>=0.10.0
+
+# OCR for Document Processing
+easyocr>=1.7.0
+
+# ============ Blockchain (Ethereum Sepolia) ============
+web3>=6.13.0
+eth-account>=0.10.0
+
+# ============ IPFS (Pinata) ============
+httpx>=0.25.0
+
+# ============ Data Validation ============
+pydantic>=2.5.0

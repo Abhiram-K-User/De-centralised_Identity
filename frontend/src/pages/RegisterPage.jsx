@@ -30,7 +30,6 @@ function RegisterPage() {
             return 'File must be JPEG format'
         }
 
-        // Accept more audio formats for better browser compatibility
         if (type === 'audio') {
             const validTypes = ['audio/wav', 'audio/wave', 'audio/x-wav', 'audio/webm', 'audio/mpeg', 'audio/mp4', 'audio/ogg']
             if (!validTypes.includes(file.type)) {
@@ -65,7 +64,6 @@ function RegisterPage() {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        // Validate all fields
         const newErrors = {
             face: validateFile(files.face, 'image'),
             voice: validateFile(files.voice, 'audio'),
@@ -126,11 +124,39 @@ function RegisterPage() {
         }
     }
 
+    const formatBytes = (bytes) => {
+        if (bytes < 1024) return bytes + ' B'
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB'
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
+    }
+
     return (
         <div className="page">
             <div className="page-header">
                 <h1 className="page-title">Register Identity</h1>
-                <p className="page-subtitle">Create your decentralized biometric identity</p>
+                <p className="page-subtitle">Create your decentralized biometric identity on IPFS & Ethereum</p>
+            </div>
+
+            {/* Architecture Info Card */}
+            <div className="card decentralized-info" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                    <span style={{ fontSize: '2rem' }}>⬡</span>
+                    <h3 style={{ margin: 0 }}>Fully Decentralized Architecture</h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', fontSize: '0.875rem' }}>
+                    <div>
+                        <div style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Storage</div>
+                        <div style={{ fontWeight: 600 }}>IPFS (Pinata)</div>
+                    </div>
+                    <div>
+                        <div style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>State</div>
+                        <div style={{ fontWeight: 600 }}>Ethereum Sepolia</div>
+                    </div>
+                    <div>
+                        <div style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Database</div>
+                        <div style={{ fontWeight: 600, color: 'var(--success)' }}>None (Eliminated)</div>
+                    </div>
+                </div>
             </div>
 
             <div className="card">
@@ -149,7 +175,7 @@ function RegisterPage() {
                             <div className="file-upload-text">
                                 {files.face ? files.face.name : 'Click to upload face photo'}
                             </div>
-                            <div className="file-upload-hint">JPEG only, max 10MB</div>
+                            <div className="file-upload-hint">JPEG only, max 10MB • Extracts 512-D ArcFace embedding</div>
                         </div>
                         <div className="capture-options">
                             <button
@@ -178,7 +204,7 @@ function RegisterPage() {
                             <div className="file-upload-text">
                                 {files.voice ? files.voice.name : 'Click to upload voice recording'}
                             </div>
-                            <div className="file-upload-hint">Audio file, max 10MB</div>
+                            <div className="file-upload-hint">Audio file, max 10MB • Extracts 192-D ECAPA-TDNN embedding</div>
                         </div>
                         <div className="capture-options">
                             <button
@@ -207,7 +233,7 @@ function RegisterPage() {
                             <div className="file-upload-text">
                                 {files.idDoc ? files.idDoc.name : 'Click to upload ID document'}
                             </div>
-                            <div className="file-upload-hint">JPEG only, max 10MB</div>
+                            <div className="file-upload-hint">JPEG only, max 10MB • Extracts 640-D embedding + OCR text</div>
                         </div>
                         {errors.idDoc && <p className="status status-error" style={{ marginTop: '0.5rem', padding: '0.5rem' }}>{errors.idDoc}</p>}
                     </div>
@@ -215,7 +241,7 @@ function RegisterPage() {
                     {uploading && (
                         <div style={{ marginBottom: '1rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span>Uploading & Processing...</span>
+                                <span>Processing biometrics → Encrypting → Uploading to IPFS...</span>
                                 <span>{progress}%</span>
                             </div>
                             <div className="progress-bar">
@@ -232,10 +258,10 @@ function RegisterPage() {
                         {uploading ? (
                             <>
                                 <span className="loader"></span>
-                                Processing Biometrics...
+                                Processing & Anchoring on Blockchain...
                             </>
                         ) : (
-                            'Register Identity'
+                            '⬡ Register Decentralized Identity'
                         )}
                     </button>
                 </form>
@@ -244,16 +270,79 @@ function RegisterPage() {
                     <div className={`status ${result.success ? 'status-success' : 'status-error'}`}>
                         {result.success ? (
                             <div>
-                                <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>✓ Registration Successful!</p>
-                                <p style={{ marginBottom: '0.5rem' }}>Your DID:</p>
-                                <div className="did-display">{result.data.did}</div>
+                                <p style={{ fontWeight: 600, marginBottom: '1rem', fontSize: '1.25rem' }}>✓ Registration Successful!</p>
+                                
+                                {/* DID */}
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>DECENTRALIZED IDENTIFIER (DID)</div>
+                                    <div className="did-display">{result.data.did}</div>
+                                </div>
+
+                                {/* IPFS CID */}
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>IPFS CONTENT IDENTIFIER (CID)</div>
+                                    <div className="did-display" style={{ background: 'rgba(118, 75, 162, 0.2)' }}>
+                                        {result.data.ipfs_cid}
+                                    </div>
+                                    <a 
+                                        href={result.data.ipfs_gateway_url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        style={{ fontSize: '0.75rem', color: 'var(--info)' }}
+                                    >
+                                        View on IPFS Gateway →
+                                    </a>
+                                </div>
+
+                                {/* Identity Hash */}
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>IDENTITY HASH (32 bytes on-chain)</div>
+                                    <div className="tx-hash" style={{ wordBreak: 'break-all' }}>
+                                        0x{result.data.identity_hash}
+                                    </div>
+                                </div>
+
+                                {/* Data Reduction Stats */}
+                                {result.data.data_reduction && (
+                                    <div style={{ marginBottom: '1rem' }}>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.5rem' }}>DATA REDUCTION PIPELINE</div>
+                                        <div className="score-display">
+                                            <div className="score-item">
+                                                <div className="score-value">{result.data.data_reduction.raw_total_mb} MB</div>
+                                                <div className="score-label">Raw Input</div>
+                                            </div>
+                                            <div className="score-item">
+                                                <div className="score-value">{result.data.data_reduction.encrypted_metadata_kb} KB</div>
+                                                <div className="score-label">IPFS Metadata</div>
+                                            </div>
+                                            <div className="score-item">
+                                                <div className="score-value">{result.data.data_reduction.blockchain_hash_bytes} B</div>
+                                                <div className="score-label">Blockchain Hash</div>
+                                            </div>
+                                            <div className="score-item" style={{ background: 'rgba(56, 239, 125, 0.1)' }}>
+                                                <div className="score-value" style={{ color: 'var(--success)', WebkitTextFillColor: 'var(--success)' }}>
+                                                    {result.data.data_reduction.reduction_raw_to_blockchain}
+                                                </div>
+                                                <div className="score-label">Total Reduction</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Transaction Hash */}
                                 {result.data.tx_hash && (
                                     <div style={{ marginTop: '1rem' }}>
                                         <p className="tx-hash">
-                                            TX: <a href={`https://sepolia.etherscan.io/tx/${result.data.tx_hash}`} target="_blank" rel="noopener noreferrer">
+                                            Blockchain TX: <a href={`https://sepolia.etherscan.io/tx/${result.data.tx_hash}`} target="_blank" rel="noopener noreferrer">
                                                 {result.data.tx_hash}
                                             </a>
                                         </p>
+                                    </div>
+                                )}
+
+                                {!result.data.tx_hash && (
+                                    <div style={{ marginTop: '1rem', padding: '0.5rem', background: 'rgba(255, 217, 61, 0.1)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem', color: 'var(--warning)' }}>
+                                        ⚠ Blockchain not configured - identity stored on IPFS only
                                     </div>
                                 )}
                             </div>

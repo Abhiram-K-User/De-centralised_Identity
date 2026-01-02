@@ -30,7 +30,6 @@ function VerifyPage() {
             return 'File must be JPEG format'
         }
 
-        // Accept more audio formats for better browser compatibility
         if (type === 'audio') {
             const validTypes = ['audio/wav', 'audio/wave', 'audio/x-wav', 'audio/webm', 'audio/mpeg', 'audio/mp4', 'audio/ogg']
             if (!validTypes.includes(file.type)) {
@@ -69,12 +68,11 @@ function VerifyPage() {
             did: !did ? 'DID is required' : null,
             face: validateFile(files.face, 'image', true),
             voice: validateFile(files.voice, 'audio', true),
-            idDoc: validateFile(files.idDoc, 'image', false)  // Optional
+            idDoc: validateFile(files.idDoc, 'image', false)
         }
 
         setErrors(newErrors)
 
-        // Only check required fields
         if (newErrors.did || newErrors.face || newErrors.voice) {
             return
         }
@@ -127,7 +125,22 @@ function VerifyPage() {
         <div className="page">
             <div className="page-header">
                 <h1 className="page-title">Verify Identity</h1>
-                <p className="page-subtitle">Authenticate using live biometric samples</p>
+                <p className="page-subtitle">Authenticate using decentralized biometric retrieval</p>
+            </div>
+
+            {/* Verification Flow Info */}
+            <div className="card" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(56, 239, 125, 0.05) 0%, rgba(77, 171, 247, 0.05) 100%)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                    <span>Blockchain</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span>IPFS Fetch</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span>In-Memory Decrypt</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span>Compare</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span style={{ color: 'var(--success)' }}>Blockchain Proof</span>
+                </div>
             </div>
 
             <div className="card">
@@ -138,11 +151,14 @@ function VerifyPage() {
                             id="did"
                             type="text"
                             className="form-input"
-                            placeholder="did:eth:sepolia:..."
+                            placeholder="did:eth:sepolia:user_..."
                             value={did}
                             onChange={(e) => setDid(e.target.value)}
                             disabled={verifying}
                         />
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            The DID will be used to fetch the IPFS CID from the blockchain
+                        </div>
                         {errors.did && <p className="status status-error" style={{ marginTop: '0.5rem', padding: '0.5rem' }}>{errors.did}</p>}
                     </div>
 
@@ -216,9 +232,9 @@ function VerifyPage() {
                             />
                             <div className="file-upload-icon">🪪</div>
                             <div className="file-upload-text">
-                                {files.idDoc ? files.idDoc.name : 'Click to upload ID document for text verification'}
+                                {files.idDoc ? files.idDoc.name : 'Click to upload ID document for OCR verification'}
                             </div>
-                            <div className="file-upload-hint">JPEG only, max 10MB - Compares OCR text with registered document</div>
+                            <div className="file-upload-hint">JPEG only, max 10MB • Compares OCR text with registered document</div>
                         </div>
                         {errors.idDoc && <p className="status status-error" style={{ marginTop: '0.5rem', padding: '0.5rem' }}>{errors.idDoc}</p>}
                     </div>
@@ -231,10 +247,10 @@ function VerifyPage() {
                         {verifying ? (
                             <>
                                 <span className="loader"></span>
-                                Verifying Identity...
+                                Fetching from IPFS & Verifying...
                             </>
                         ) : (
-                            'Verify Identity'
+                            '🔍 Verify Identity'
                         )}
                     </button>
                 </form>
@@ -244,12 +260,20 @@ function VerifyPage() {
                         {result.success ? (
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                                    <p style={{ fontWeight: 600, fontSize: '1.25rem' }}>
+                                    <p style={{ fontWeight: 600, fontSize: '1.25rem', margin: 0 }}>
                                         {result.data.verified ? '✓ Identity Verified' : '✗ Verification Failed'}
                                     </p>
                                     <span className={getConfidenceBadgeClass(result.data.confidence_level)}>
                                         {result.data.confidence_level}
                                     </span>
+                                </div>
+
+                                {/* IPFS CID Used */}
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>IPFS CID RETRIEVED FROM BLOCKCHAIN</div>
+                                    <div className="tx-hash" style={{ wordBreak: 'break-all' }}>
+                                        {result.data.metadata_cid}
+                                    </div>
                                 </div>
 
                                 <div className="score-display">
@@ -286,7 +310,8 @@ function VerifyPage() {
                                 )}
 
                                 {result.data.tx_hash && (
-                                    <div style={{ marginTop: '1rem' }}>
+                                    <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(56, 239, 125, 0.1)', borderRadius: 'var(--radius-sm)' }}>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--success)', marginBottom: '0.25rem' }}>VERIFICATION PROOF LOGGED ON BLOCKCHAIN</div>
                                         <p className="tx-hash">
                                             TX: <a href={`https://sepolia.etherscan.io/tx/${result.data.tx_hash}`} target="_blank" rel="noopener noreferrer">
                                                 {result.data.tx_hash}
