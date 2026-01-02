@@ -1,0 +1,43 @@
+# DID++ Backend Dependencies
+# Fully Decentralized Biometric Identity System
+
+# ============ FastAPI & Server ============
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+python-dotenv>=1.0.0
+
+# ============ Encryption ============
+cryptography>=41.0.0
+
+# ============ ML/AI - Biometric Processing ============
+# Face Recognition (ArcFace via InsightFace)
+insightface>=0.7.3
+
+# ONNX Runtime - USE GPU VERSION FOR CUDA SUPPORT
+# Uncomment the appropriate line for your system:
+# onnxruntime>=1.20.0          # CPU only
+onnxruntime-gpu>=1.20.0        # NVIDIA GPU with CUDA 12
+
+# Voice Recognition (ECAPA-TDNN via SpeechBrain)
+speechbrain>=1.0.0
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Image/Audio Processing
+opencv-python>=4.8.0
+numpy>=1.24.0,<2.0.0
+librosa>=0.10.0
+
+# OCR for Document Processing
+easyocr>=1.7.0
+
+# ============ Blockchain (Ethereum Sepolia) ============
+web3>=6.13.0
+eth-account>=0.10.0
+
+# ============ IPFS (Pinata) ============
+httpx>=0.25.0
+
+# ============ Data Validation ============
+pydantic>=2.5.0
