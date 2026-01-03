@@ -37,6 +37,20 @@ class Config:
     CHAIN_ID: int = 11155111  # Sepolia testnet
     GAS_LIMIT: int = int(os.getenv("GAS_LIMIT", "300000"))
     
+    # ============ Blockchain Optimization Flags ============
+    # Enable optimized blockchain service with smart fallback
+    USE_OPTIMIZED_BLOCKCHAIN: bool = os.getenv("USE_OPTIMIZED_BLOCKCHAIN", "false").lower() == "true"
+    
+    # Circuit breaker settings for smart fallback
+    CIRCUIT_BREAKER_THRESHOLD: int = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "5"))
+    CIRCUIT_BREAKER_TIMEOUT: int = int(os.getenv("CIRCUIT_BREAKER_TIMEOUT", "60"))
+    
+    # Cache settings (for optimized service)
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    CACHE_TTL: int = int(os.getenv("CACHE_TTL", "300"))  # 5 minutes default
+    
     # ============ IPFS (Pinata) ============
     PINATA_API_KEY: str = os.getenv("PINATA_API_KEY", "")
     PINATA_SECRET_KEY: str = os.getenv("PINATA_SECRET_KEY", "")

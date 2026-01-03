@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, status, Query
 from pydantic import BaseModel
 
 from app.config import config
-from app.services.blockchain import blockchain_service
+from app.services import blockchain_service
 from app.services.ipfs import ipfs_service
 from app.services.alias import alias_service
 

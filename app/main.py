@@ -77,36 +77,55 @@ async def startup_event():
     
     # Check IPFS configuration
     if config.is_ipfs_configured():
-        print("✓ IPFS (Pinata): Configured")
+        print("[+] IPFS (Pinata): Configured")
     else:
-        print("✗ IPFS (Pinata): Not configured - set PINATA_JWT or PINATA_API_KEY/PINATA_SECRET_KEY")
+        print("[X] IPFS (Pinata): Not configured - set PINATA_JWT or PINATA_API_KEY/PINATA_SECRET_KEY")
     
     # Check blockchain configuration
     if config.is_blockchain_configured():
-        from app.services.blockchain import blockchain_service
+        from app.services import blockchain_service
         if blockchain_service.is_connected():
-            print("✓ Blockchain (Sepolia): Connected")
+            print("[+] Blockchain (Sepolia): Connected")
+            
+            # Show which blockchain service is active
+            try:
+                service_name = blockchain_service.get_service_name()
+                is_optimized = getattr(blockchain_service, 'use_optimized', False)
+                
+                if is_optimized and service_name == "optimized":
+                    print("[*] Blockchain Mode: OPTIMIZED (Enhanced Performance)")
+                    print("    -> EIP-1559 gas pricing (faster confirmations)")
+                    print("    -> Smart gas estimation")
+                    print("    -> Batch operation support")
+                    print("    -> Automatic fallback to legacy if issues")
+                else:
+                    print("[*] Blockchain Mode: LEGACY (Standard)")
+                    print("    -> Standard RPC calls")
+                    print("    -> Reliable and tested")
+            except Exception as e:
+                print(f"[*] Blockchain Mode: STANDARD (debug: {e})")
+            
             stats = blockchain_service.get_stats()
             print(f"  - DIDRegistry: {config.DID_REGISTRY_ADDRESS}")
             print(f"  - VerificationLog: {config.VERIFICATION_LOG_ADDRESS}")
             print(f"  - Wallet: {stats.get('wallet_address', 'N/A')}")
             print(f"  - Balance: {stats.get('wallet_balance_eth', 0):.4f} ETH")
         else:
-            print("✗ Blockchain (Sepolia): Not connected")
+            print("[X] Blockchain (Sepolia): Not connected")
     else:
-        print("✗ Blockchain (Sepolia): Not configured - set contract addresses and keys")
+        print("[X] Blockchain (Sepolia): Not configured - set contract addresses and keys")
     
     # Check encryption configuration
     if config.is_encryption_configured():
-        print("✓ Encryption (AES-256-CBC): Configured")
+        print("[+] Encryption (AES-256-CBC): Configured")
     else:
-        print("✗ Encryption: Not configured - set MASTER_KEY (64 hex chars)")
+        print("[X] Encryption: Not configured - set MASTER_KEY (64 hex chars)")
     
     # Validate weights
     if config.validate_weights():
-        print(f"✓ Biometric Weights: Face={config.FACE_WEIGHT}, Voice={config.VOICE_WEIGHT}, Doc={config.DOC_WEIGHT}")
+        print(f"[+] Biometric Weights: Face={config.FACE_WEIGHT}, Voice={config.VOICE_WEIGHT}, Doc={config.DOC_WEIGHT}")
     else:
-        print("⚠ Biometric Weights: Do not sum to 1.0")
+        print("[!] Biometric Weights: Do not sum to 1.0")
     
     print("=" * 60)
     print(f"API available at: http://{config.API_HOST}:{config.API_PORT}")
@@ -121,7 +140,7 @@ async def health_check():
     
     Returns status of all decentralized services.
     """
-    from app.services.blockchain import blockchain_service
+    from app.services import blockchain_service
     from app.services.ipfs import ipfs_service
     
     blockchain_connected = blockchain_service.is_connected()

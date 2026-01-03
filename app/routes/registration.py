@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from app.config import config
 from app.services.encryption import encryption_service, compute_sha256, compute_sha256_bytes
 from app.services.ml_engine import ml_engine
-from app.services.blockchain import blockchain_service
+from app.services import blockchain_service
 from app.services.ipfs import ipfs_service, create_ipfs_metadata
 from app.services.alias import alias_service
 

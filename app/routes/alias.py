@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.services.alias import alias_service
-from app.services.blockchain import blockchain_service
+from app.services import blockchain_service
 
 
 router = APIRouter()

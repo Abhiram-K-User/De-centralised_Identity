@@ -735,5 +735,6 @@ class BlockchainService:
         return stats
 
 
-# Global blockchain service instance
-blockchain_service = BlockchainService()
+# Note: Global blockchain_service instance is now created in __init__.py
+# using blockchain_smart.py (SimpleSmartBlockchainService) which provides
+# automatic fallback between optimized and legacy services.
