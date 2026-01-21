@@ -36,6 +36,7 @@ class Config:
     # Chain settings
     CHAIN_ID: int = 11155111  # Sepolia testnet
     GAS_LIMIT: int = int(os.getenv("GAS_LIMIT", "300000"))
+    GAS_PRICE_MULTIPLIER: float = float(os.getenv("GAS_PRICE_MULTIPLIER", "1.5"))  # Multiply gas price for faster confirmation
     
     # ============ IPFS (Pinata) ============
     PINATA_API_KEY: str = os.getenv("PINATA_API_KEY", "")

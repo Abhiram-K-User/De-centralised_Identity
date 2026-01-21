@@ -292,11 +292,15 @@ class BlockchainService:
             # Build transaction
             nonce = self.w3.eth.get_transaction_count(self.account.address)
             
+            # Apply gas price multiplier for faster confirmation
+            base_gas_price = self.w3.eth.gas_price
+            adjusted_gas_price = int(base_gas_price * config.GAS_PRICE_MULTIPLIER)
+            
             tx = function.build_transaction({
                 'from': self.account.address,
                 'nonce': nonce,
                 'gas': gas_limit or config.GAS_LIMIT,
-                'gasPrice': self.w3.eth.gas_price,
+                'gasPrice': adjusted_gas_price,
                 'chainId': config.CHAIN_ID
             })
             
@@ -570,6 +574,9 @@ class BlockchainService:
         """
         Get DIDRegistered events from blockchain logs.
         
+        Uses eth_getLogs directly instead of create_filter for better 
+        compatibility with Alchemy and other RPC providers.
+        
         Args:
             did: Optional DID to filter by
             from_block: Starting block number
@@ -581,40 +588,64 @@ class BlockchainService:
             return []
         
         try:
-            # Build filter
-            if did:
-                did_hash = Web3.keccak(text=did)
-                event_filter = self.did_registry.events.DIDRegistered.create_filter(
-                    fromBlock=from_block,
-                    toBlock='latest',
-                    argument_filters={'didHash': did_hash}
-                )
-            else:
-                event_filter = self.did_registry.events.DIDRegistered.create_filter(
-                    fromBlock=from_block,
-                    toBlock='latest'
-                )
+            # Use eth_getLogs directly instead of create_filter
+            # This is more reliable with Alchemy RPC
             
-            events = event_filter.get_all_entries()
+            # Get the current block number
+            current_block = self.w3.eth.block_number
+            
+            # Calculate from_block - use a reasonable range (last 500k blocks or from_block)
+            # Sepolia has ~12 second blocks, so 500k blocks ≈ 70 days
+            if from_block == 0:
+                from_block = max(0, current_block - 500000)
+            
+            # Build filter parameters
+            # For eth_getLogs, topics should be the event signature as first topic
+            # No need to manually filter by DID here - we'll filter after decoding
+            # since the DID string is not indexed in the event, only didHash is
+            
+            filter_params = {
+                'fromBlock': from_block,
+                'toBlock': 'latest',
+                'address': self.did_registry.address
+            }
+            
+            # Add DID filter if provided (didHash is indexed as first topic after signature)
+            if did:
+                did_hash = self.w3.keccak(text=did)
+                # Topics: [event_signature, didHash] - didHash is indexed
+                filter_params['topics'] = [None, did_hash]
+            
+            # Get logs using eth_getLogs
+            logs = self.w3.eth.get_logs(filter_params)
             
             result = []
-            for event in events:
-                result.append({
-                    "event_type": "registration",
-                    "did_hash": event['args']['didHash'].hex(),
-                    "did": event['args']['did'],
-                    "metadata_cid": event['args']['metadataCID'],
-                    "identity_hash": event['args']['identityHash'].hex(),
-                    "registrar": event['args']['registrar'],
-                    "timestamp": event['args']['timestamp'],
-                    "block_number": event['blockNumber'],
-                    "tx_hash": event['transactionHash'].hex()
-                })
+            for log in logs:
+                try:
+                    # Decode the event
+                    decoded = self.did_registry.events.DIDRegistered().process_log(log)
+                    
+                    result.append({
+                        "event_type": "registration",
+                        "did_hash": decoded['args']['didHash'].hex(),
+                        "did": decoded['args']['did'],
+                        "metadata_cid": decoded['args']['metadataCID'],
+                        "identity_hash": decoded['args']['identityHash'].hex(),
+                        "registrar": decoded['args']['registrar'],
+                        "timestamp": decoded['args']['timestamp'],
+                        "block_number": log['blockNumber'],
+                        "tx_hash": log['transactionHash'].hex()
+                    })
+                except Exception as decode_error:
+                    print(f"Error decoding registration event: {decode_error}")
+                    continue
             
             return result
             
         except Exception as e:
             print(f"Error getting registration events: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def get_verification_events(
@@ -624,6 +655,9 @@ class BlockchainService:
     ) -> List[Dict[str, Any]]:
         """
         Get VerificationLogged events from blockchain logs.
+        
+        Uses eth_getLogs directly instead of create_filter for better 
+        compatibility with Alchemy and other RPC providers.
         
         Args:
             did: Optional DID to filter by
@@ -636,44 +670,69 @@ class BlockchainService:
             return []
         
         try:
-            # Build filter
-            if did:
-                did_hash = Web3.keccak(text=did)
-                event_filter = self.verification_log.events.VerificationLogged.create_filter(
-                    fromBlock=from_block,
-                    toBlock='latest',
-                    argument_filters={'didHash': did_hash}
-                )
-            else:
-                event_filter = self.verification_log.events.VerificationLogged.create_filter(
-                    fromBlock=from_block,
-                    toBlock='latest'
-                )
+            # Use eth_getLogs directly instead of create_filter
+            # This is more reliable with Alchemy RPC
             
-            events = event_filter.get_all_entries()
+            # Get the current block number
+            current_block = self.w3.eth.block_number
+            
+            # Calculate from_block - use a reasonable range (last 500k blocks or from_block)
+            # Sepolia has ~12 second blocks, so 500k blocks ≈ 70 days
+            if from_block == 0:
+                from_block = max(0, current_block - 500000)
+            
+            # Build filter parameters
+            # For eth_getLogs, topics should be the event signature as first topic
+            # Event: VerificationLogged(bytes32 indexed didHash, string did, bytes32 indexed verificationHash, 
+            #        string metadataCID, uint8 confidenceLevel, bool success, address indexed verifier, 
+            #        uint256 timestamp, uint256 blockNumber)
+            
+            filter_params = {
+                'fromBlock': from_block,
+                'toBlock': 'latest',
+                'address': self.verification_log.address
+            }
+            
+            # Add DID filter if provided (didHash is indexed as first topic after signature)
+            if did:
+                did_hash = self.w3.keccak(text=did)
+                # Topics: [event_signature, didHash] - didHash is indexed
+                filter_params['topics'] = [None, did_hash]
+            
+            # Get logs using eth_getLogs
+            logs = self.w3.eth.get_logs(filter_params)
             
             result = []
-            for event in events:
-                result.append({
-                    "event_type": "verification",
-                    "did_hash": event['args']['didHash'].hex(),
-                    "did": event['args']['did'],
-                    "verification_hash": event['args']['verificationHash'].hex(),
-                    "metadata_cid": event['args']['metadataCID'],
-                    "confidence_level": CONFIDENCE_LEVELS_REVERSE.get(
-                        event['args']['confidenceLevel'], "UNKNOWN"
-                    ),
-                    "success": event['args']['success'],
-                    "verifier": event['args']['verifier'],
-                    "timestamp": event['args']['timestamp'],
-                    "block_number": event['args']['blockNumber'],
-                    "tx_hash": event['transactionHash'].hex()
-                })
+            for log in logs:
+                try:
+                    # Decode the event
+                    decoded = self.verification_log.events.VerificationLogged().process_log(log)
+                    
+                    result.append({
+                        "event_type": "verification",
+                        "did_hash": decoded['args']['didHash'].hex(),
+                        "did": decoded['args']['did'],
+                        "verification_hash": decoded['args']['verificationHash'].hex(),
+                        "metadata_cid": decoded['args']['metadataCID'],
+                        "confidence_level": CONFIDENCE_LEVELS_REVERSE.get(
+                            decoded['args']['confidenceLevel'], "UNKNOWN"
+                        ),
+                        "success": decoded['args']['success'],
+                        "verifier": decoded['args']['verifier'],
+                        "timestamp": decoded['args']['timestamp'],
+                        "block_number": decoded['args']['blockNumber'],
+                        "tx_hash": log['transactionHash'].hex()
+                    })
+                except Exception as decode_error:
+                    print(f"Error decoding verification event: {decode_error}")
+                    continue
             
             return result
             
         except Exception as e:
             print(f"Error getting verification events: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def get_full_timeline(self, did: str) -> List[Dict[str, Any]]:

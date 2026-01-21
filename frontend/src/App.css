@@ -851,6 +851,82 @@
     color: var(--text-secondary);
 }
 
+/* ============ Brightness Indicator ============ */
+.brightness-indicator {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    border: 1px solid var(--border-color);
+}
+
+.brightness-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.brightness-icon {
+    font-size: var(--font-size-lg);
+    transition: color var(--transition-fast);
+}
+
+.brightness-text {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+
+.brightness-meter {
+    position: relative;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-full);
+    overflow: visible;
+    margin: var(--spacing-sm) 0;
+}
+
+.brightness-bar {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width var(--transition-fast), background var(--transition-fast);
+    box-shadow: 0 0 10px currentColor;
+}
+
+.brightness-thresholds {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.brightness-threshold {
+    position: absolute;
+    top: -4px;
+    width: 2px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 1px;
+}
+
+.brightness-threshold.critical {
+    background: var(--error);
+    opacity: 0.5;
+}
+
+.brightness-threshold.warning {
+    background: var(--warning);
+    opacity: 0.5;
+}
+
+.brightness-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+    margin-top: var(--spacing-xs);
+}
+
 /* ============ Voice Recorder ============ */
 .voice-recorder-display {
     background: rgba(0, 0, 0, 0.3);

@@ -128,9 +128,9 @@ function RegisterPage() {
         <div className="page">
             {/* Hero Header */}
             <div className="page-header">
-                <div style={{ 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
+                <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
                     gap: '0.75rem',
                     marginBottom: '1rem',
                     padding: '0.5rem 1rem',
@@ -139,7 +139,7 @@ function RegisterPage() {
                     border: '1px solid rgba(99, 102, 241, 0.2)'
                 }}>
                     <span style={{ fontSize: '1.25rem' }}>🔐</span>
-                    <span style={{ 
+                    <span style={{
                         fontSize: 'var(--font-size-xs)',
                         color: 'var(--primary-light)',
                         fontWeight: '600',
@@ -154,7 +154,7 @@ function RegisterPage() {
             {/* Architecture Info Card */}
             <div className="card decentralized-info" style={{ marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-                    <span style={{ 
+                    <span style={{
                         fontSize: '1.75rem',
                         filter: 'drop-shadow(0 0 10px rgba(99, 102, 241, 0.5))'
                     }}>⬡</span>
@@ -163,16 +163,16 @@ function RegisterPage() {
                         <p style={{ margin: 0, fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>No central database • All data on-chain</p>
                     </div>
                 </div>
-                <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(3, 1fr)', 
-                    gap: '1rem', 
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '1rem',
                     fontSize: '0.875rem',
                     borderTop: '1px solid var(--border-color)',
                     paddingTop: '1rem'
                 }}>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ 
+                        <div style={{
                             fontSize: '1.5rem',
                             marginBottom: '0.25rem'
                         }}>📦</div>
@@ -180,7 +180,7 @@ function RegisterPage() {
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>IPFS</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ 
+                        <div style={{
                             fontSize: '1.5rem',
                             marginBottom: '0.25rem'
                         }}>⛓️</div>
@@ -188,7 +188,7 @@ function RegisterPage() {
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Ethereum</div>
                     </div>
                     <div style={{ textAlign: 'center' }}>
-                        <div style={{ 
+                        <div style={{
                             fontSize: '1.5rem',
                             marginBottom: '0.25rem'
                         }}>🚫</div>
@@ -202,9 +202,8 @@ function RegisterPage() {
             <div className="card">
                 <form onSubmit={handleSubmit}>
                     {/* Step Indicator */}
-                    <div style={{ 
+                    <div style={{
                         display: 'flex',
-                        justifyContent: 'space-between',
                         alignItems: 'center',
                         marginBottom: '2rem',
                         padding: '1rem',
@@ -217,37 +216,42 @@ function RegisterPage() {
                             { icon: '🎤', label: 'Voice', active: files.voice },
                             { icon: '🪪', label: 'ID Doc', active: files.idDoc }
                         ].map((step, index) => (
-                            <div key={step.label} style={{ 
-                                display: 'flex', 
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                flex: 1,
-                                justifyContent: 'center'
+                            <div key={step.label} style={{
+                                display: 'contents'
                             }}>
+                                {/* Step icon and label */}
                                 <div style={{
-                                    width: '36px',
-                                    height: '36px',
-                                    borderRadius: '50%',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: step.active 
-                                        ? 'linear-gradient(135deg, var(--success) 0%, #22d3ee 100%)'
-                                        : 'rgba(255, 255, 255, 0.05)',
-                                    border: step.active 
-                                        ? 'none' 
-                                        : '1px solid var(--border-color)',
-                                    fontSize: step.active ? '0.9rem' : '1rem',
-                                    transition: 'all 0.3s ease',
-                                    boxShadow: step.active ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none'
+                                    gap: '0.5rem',
+                                    flexShrink: 0
                                 }}>
-                                    {step.active ? '✓' : step.icon}
+                                    <div style={{
+                                        width: '36px',
+                                        height: '36px',
+                                        borderRadius: '50%',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: step.active
+                                            ? 'linear-gradient(135deg, var(--success) 0%, #22d3ee 100%)'
+                                            : 'rgba(255, 255, 255, 0.05)',
+                                        border: step.active
+                                            ? 'none'
+                                            : '1px solid var(--border-color)',
+                                        fontSize: step.active ? '0.9rem' : '1rem',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: step.active ? '0 4px 15px rgba(34, 197, 94, 0.4)' : 'none'
+                                    }}>
+                                        {step.active ? '✓' : step.icon}
+                                    </div>
+                                    <span style={{
+                                        fontSize: 'var(--font-size-xs)',
+                                        color: step.active ? 'var(--success-light)' : 'var(--text-muted)',
+                                        fontWeight: step.active ? '600' : '400'
+                                    }}>{step.label}</span>
                                 </div>
-                                <span style={{ 
-                                    fontSize: 'var(--font-size-xs)',
-                                    color: step.active ? 'var(--success-light)' : 'var(--text-muted)',
-                                    fontWeight: step.active ? '600' : '400'
-                                }}>{step.label}</span>
+                                {/* Connector line */}
                                 {index < 2 && (
                                     <div style={{
                                         flex: 1,
@@ -255,8 +259,7 @@ function RegisterPage() {
                                         background: files.face && index === 0 || files.voice && index === 1
                                             ? 'var(--primary-gradient)'
                                             : 'var(--border-color)',
-                                        marginLeft: '0.5rem',
-                                        marginRight: '0.5rem',
+                                        margin: '0 1rem',
                                         borderRadius: '1px'
                                     }} />
                                 )}
@@ -269,7 +272,7 @@ function RegisterPage() {
                         <label className="form-label">
                             <span>📸</span>
                             <span>Face Image</span>
-                            <span style={{ 
+                            <span style={{
                                 marginLeft: 'auto',
                                 fontSize: 'var(--font-size-xs)',
                                 color: 'var(--text-muted)',
@@ -308,7 +311,7 @@ function RegisterPage() {
                         <label className="form-label">
                             <span>🎤</span>
                             <span>Voice Sample</span>
-                            <span style={{ 
+                            <span style={{
                                 marginLeft: 'auto',
                                 fontSize: 'var(--font-size-xs)',
                                 color: 'var(--text-muted)',
@@ -347,7 +350,7 @@ function RegisterPage() {
                         <label className="form-label">
                             <span>🪪</span>
                             <span>ID Document</span>
-                            <span style={{ 
+                            <span style={{
                                 marginLeft: 'auto',
                                 fontSize: 'var(--font-size-xs)',
                                 color: 'var(--text-muted)',
@@ -374,16 +377,16 @@ function RegisterPage() {
                     {/* Progress Bar */}
                     {uploading && (
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
                                 marginBottom: '0.5rem',
                                 fontSize: 'var(--font-size-sm)'
                             }}>
                                 <span style={{ color: 'var(--text-secondary)' }}>
                                     Processing biometrics → IPFS upload...
                                 </span>
-                                <span style={{ 
+                                <span style={{
                                     fontWeight: '600',
                                     color: 'var(--primary-light)'
                                 }}>{progress}%</span>
@@ -419,7 +422,7 @@ function RegisterPage() {
                     <div className={`status ${result.success ? 'status-success' : 'status-error'}`}>
                         {result.success ? (
                             <div>
-                                <div style={{ 
+                                <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '0.75rem',
@@ -444,17 +447,17 @@ function RegisterPage() {
 
                                 {/* Short Code - Prominently displayed */}
                                 {result.data.short_code && (
-                                    <div style={{ 
-                                        marginBottom: '1.5rem', 
-                                        padding: '1.5rem', 
+                                    <div style={{
+                                        marginBottom: '1.5rem',
+                                        padding: '1.5rem',
                                         background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%)',
                                         borderRadius: 'var(--radius-lg)',
                                         textAlign: 'center',
                                         border: '1px solid rgba(34, 197, 94, 0.3)'
                                     }}>
-                                        <div style={{ 
-                                            color: 'var(--text-muted)', 
-                                            fontSize: '0.7rem', 
+                                        <div style={{
+                                            color: 'var(--text-muted)',
+                                            fontSize: '0.7rem',
                                             marginBottom: '0.5rem',
                                             textTransform: 'uppercase',
                                             letterSpacing: '1px'
@@ -470,10 +473,10 @@ function RegisterPage() {
                                         }}>
                                             {result.data.short_code.toUpperCase()}
                                         </div>
-                                        <div style={{ 
-                                            fontSize: 'var(--font-size-sm)', 
-                                            color: 'var(--text-secondary)', 
-                                            marginTop: '0.75rem' 
+                                        <div style={{
+                                            fontSize: 'var(--font-size-sm)',
+                                            color: 'var(--text-secondary)',
+                                            marginTop: '0.75rem'
                                         }}>
                                             Use this for quick verification
                                         </div>
@@ -482,9 +485,9 @@ function RegisterPage() {
 
                                 {/* DID */}
                                 <div style={{ marginBottom: '1rem' }}>
-                                    <div style={{ 
-                                        color: 'var(--text-muted)', 
-                                        fontSize: '0.65rem', 
+                                    <div style={{
+                                        color: 'var(--text-muted)',
+                                        fontSize: '0.65rem',
                                         marginBottom: '0.5rem',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px'
@@ -494,9 +497,9 @@ function RegisterPage() {
 
                                 {/* IPFS CID */}
                                 <div style={{ marginBottom: '1rem' }}>
-                                    <div style={{ 
-                                        color: 'var(--text-muted)', 
-                                        fontSize: '0.65rem', 
+                                    <div style={{
+                                        color: 'var(--text-muted)',
+                                        fontSize: '0.65rem',
                                         marginBottom: '0.5rem',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.5px'
@@ -508,8 +511,8 @@ function RegisterPage() {
                                         href={result.data.ipfs_gateway_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        style={{ 
-                                            fontSize: '0.75rem', 
+                                        style={{
+                                            fontSize: '0.75rem',
                                             color: 'var(--info-light)',
                                             display: 'inline-flex',
                                             alignItems: 'center',
@@ -524,9 +527,9 @@ function RegisterPage() {
                                 {/* Data Reduction Stats */}
                                 {result.data.data_reduction && (
                                     <div style={{ marginBottom: '1rem' }}>
-                                        <div style={{ 
-                                            color: 'var(--text-muted)', 
-                                            fontSize: '0.65rem', 
+                                        <div style={{
+                                            color: 'var(--text-muted)',
+                                            fontSize: '0.65rem',
                                             marginBottom: '0.75rem',
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px'
@@ -544,13 +547,13 @@ function RegisterPage() {
                                                 <div className="score-value">{result.data.data_reduction.blockchain_hash_bytes} B</div>
                                                 <div className="score-label">On-Chain</div>
                                             </div>
-                                            <div className="score-item" style={{ 
+                                            <div className="score-item" style={{
                                                 background: 'rgba(34, 197, 94, 0.1)',
                                                 borderColor: 'rgba(34, 197, 94, 0.3)'
                                             }}>
-                                                <div className="score-value" style={{ 
-                                                    color: 'var(--success-light)', 
-                                                    WebkitTextFillColor: 'var(--success-light)' 
+                                                <div className="score-value" style={{
+                                                    color: 'var(--success-light)',
+                                                    WebkitTextFillColor: 'var(--success-light)'
                                                 }}>
                                                     {result.data.data_reduction.reduction_raw_to_blockchain}
                                                 </div>
@@ -562,16 +565,16 @@ function RegisterPage() {
 
                                 {/* Transaction Hash */}
                                 {result.data.tx_hash && (
-                                    <div style={{ 
+                                    <div style={{
                                         marginTop: '1rem',
                                         padding: '1rem',
                                         background: 'rgba(34, 197, 94, 0.08)',
                                         borderRadius: 'var(--radius-md)',
                                         border: '1px solid rgba(34, 197, 94, 0.2)'
                                     }}>
-                                        <div style={{ 
-                                            fontSize: '0.65rem', 
-                                            color: 'var(--success-light)', 
+                                        <div style={{
+                                            fontSize: '0.65rem',
+                                            color: 'var(--success-light)',
                                             marginBottom: '0.5rem',
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.5px'
@@ -585,13 +588,13 @@ function RegisterPage() {
                                 )}
 
                                 {!result.data.tx_hash && (
-                                    <div style={{ 
-                                        marginTop: '1rem', 
-                                        padding: '1rem', 
-                                        background: 'rgba(245, 158, 11, 0.1)', 
-                                        borderRadius: 'var(--radius-md)', 
+                                    <div style={{
+                                        marginTop: '1rem',
+                                        padding: '1rem',
+                                        background: 'rgba(245, 158, 11, 0.1)',
+                                        borderRadius: 'var(--radius-md)',
                                         border: '1px solid rgba(245, 158, 11, 0.3)',
-                                        fontSize: '0.875rem', 
+                                        fontSize: '0.875rem',
                                         color: 'var(--warning-light)',
                                         display: 'flex',
                                         alignItems: 'center',

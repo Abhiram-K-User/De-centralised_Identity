@@ -61,16 +61,16 @@ function HistoryPage() {
     return (
         <div className="page">
             <div className="page-header">
-                <h1 className="page-title">Identity History</h1>
-                <p className="page-subtitle">View your on-chain identity activity timeline</p>
+                <h1 className="page-title">Identity Lookup</h1>
+                <p className="page-subtitle">View your on-chain identity record stored on Ethereum</p>
             </div>
 
             {/* Blockchain Query Info */}
             <div className="card" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(255, 217, 61, 0.05) 0%, rgba(255, 107, 107, 0.05) 100%)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                     <span>⛓️</span>
-                    <span>All data queried directly from Ethereum Sepolia blockchain event logs</span>
-                    <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>No database used</span>
+                    <span>Identity data retrieved directly from Ethereum Sepolia blockchain</span>
+                    <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Fully decentralized</span>
                 </div>
             </div>
 
@@ -83,8 +83,8 @@ function HistoryPage() {
                         value={did}
                         onChange={(e) => setDid(e.target.value)}
                         disabled={loading}
-                        style={{ 
-                            flex: 1, 
+                        style={{
+                            flex: 1,
                             minWidth: '200px',
                             textTransform: did.startsWith('did:') ? 'none' : 'uppercase',
                             fontFamily: 'var(--font-mono)',
@@ -122,7 +122,7 @@ function HistoryPage() {
                                 <span className="badge badge-error">Inactive</span>
                             )}
                         </div>
-                        
+
                         <div style={{ display: 'grid', gap: '1rem' }}>
                             {/* DID */}
                             <div>
@@ -136,9 +136,9 @@ function HistoryPage() {
                                 <div className="did-display" style={{ background: 'rgba(118, 75, 162, 0.2)' }}>
                                     {result.metadata_cid}
                                 </div>
-                                <a 
-                                    href={result.ipfs_gateway_url} 
-                                    target="_blank" 
+                                <a
+                                    href={result.ipfs_gateway_url}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     style={{ fontSize: '0.75rem', color: 'var(--info)' }}
                                 >
@@ -176,72 +176,7 @@ function HistoryPage() {
                         </div>
                     </div>
 
-                    {/* Timeline */}
-                    <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>⛓️</span>
-                        <span>Blockchain Event Timeline</span>
-                    </h3>
 
-                    {result.timeline && result.timeline.length > 0 ? (
-                        <div className="timeline">
-                            {result.timeline.map((event, index) => (
-                                <div key={index} className="timeline-item">
-                                    <div className="timeline-content">
-                                        <div className="timeline-header">
-                                            <span className="timeline-title">
-                                                {getEventIcon(event.event_type)} {event.event_type === 'registration' ? 'Identity Registered' : 'Verification Attempt'}
-                                            </span>
-                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                {getStatusBadge(event)}
-                                                {event.confidence_level && getConfidenceBadge(event.confidence_level)}
-                                            </div>
-                                        </div>
-                                        <div className="timeline-time">{event.timestamp_formatted}</div>
-
-                                        {event.event_type === 'registration' && event.metadata_cid && (
-                                            <div className="timeline-body" style={{ marginTop: '0.75rem' }}>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>IPFS CID:</div>
-                                                <div className="tx-hash">{event.metadata_cid}</div>
-                                            </div>
-                                        )}
-
-                                        {event.event_type === 'verification' && (
-                                            <div className="timeline-body" style={{ marginTop: '0.75rem' }}>
-                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Verification Hash:</div>
-                                                <div className="tx-hash" style={{ wordBreak: 'break-all' }}>
-                                                    0x{event.verification_hash}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {event.tx_hash && (
-                                            <div style={{ marginTop: '0.75rem' }}>
-                                                <p className="tx-hash">
-                                                    TX: <a href={`https://sepolia.etherscan.io/tx/${event.tx_hash}`} target="_blank" rel="noopener noreferrer">
-                                                        {event.tx_hash.slice(0, 20)}...{event.tx_hash.slice(-8)}
-                                                    </a>
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {event.block_number && (
-                                            <div style={{ marginTop: '0.25rem' }}>
-                                                <span className="tx-hash">
-                                                    Block: <a href={`https://sepolia.etherscan.io/block/${event.block_number}`} target="_blank" rel="noopener noreferrer">
-                                                        #{event.block_number}
-                                                    </a>
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="card" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                            <p>No blockchain events recorded yet</p>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

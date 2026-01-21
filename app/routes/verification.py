@@ -136,6 +136,24 @@ def text_similarity(text1: str, text2: str) -> float:
     return 0.6 * ngram_similarity + 0.4 * jaccard
 
 
+def calibrate_doc_face_score(raw_score: float) -> float:
+    if raw_score < 0.3:
+        # Very low - likely different person
+        return raw_score
+    elif raw_score < 0.5:
+        # Low-medium - uncertain, apply mild boost
+        # Map 0.3-0.5 to 0.3-0.6
+        return 0.3 + (raw_score - 0.3) * 1.5
+    elif raw_score < 0.75:
+        # Typical same-person ID-vs-live range
+        # Map 0.5-0.75 to 0.6-0.9
+        return 0.6 + (raw_score - 0.5) * 1.2
+    else:
+        # Already high - excellent match
+        # Map 0.75-1.0 to 0.9-1.0
+        return 0.9 + (raw_score - 0.75) * 0.4
+
+
 def create_verification_payload(
     did: str,
     metadata_cid: str,
@@ -366,45 +384,73 @@ async def verify_identity(
         
         # Compare extracted text with stored text
         doc_text_score = text_similarity(live_doc_text, stored_doc_text)
+        print(f"Document text similarity: {doc_text_score:.4f}")
         
         # Compare face in live document with stored face embedding (registered face)
         if live_doc_embedding is not None:
             # Extract face portion from document embedding (first 512 dims)
+            # Note: The face portion is pre-normalized in ml_engine.py
             live_doc_face = live_doc_embedding[:512] if len(live_doc_embedding) >= 512 else live_doc_embedding
             
-            # Normalize dimensions
+            # Normalize dimensions if needed
             if len(live_doc_face) < 512:
                 live_doc_face = np.pad(live_doc_face, (0, 512 - len(live_doc_face)))
+            
+            # Ensure it's normalized for comparison
+            live_doc_face_norm = np.linalg.norm(live_doc_face)
+            if live_doc_face_norm > 0.1:  # Only if we have a valid face embedding
+                live_doc_face = live_doc_face / (live_doc_face_norm + 1e-8)
             
             # Multi-way comparison for better accuracy:
             # 1. Live face vs Document face (is this person holding their own ID?)
             live_vs_doc = ml_engine.cosine_similarity(live_face_embedding, live_doc_face)
+            print(f"Live face vs Document face: {live_vs_doc:.4f}")
             
             # 2. Stored face vs Document face (does the ID match registration?)
             stored_vs_doc = ml_engine.cosine_similarity(stored_face_embedding, live_doc_face)
+            print(f"Stored face vs Document face: {stored_vs_doc:.4f}")
             
-            # Use the average of both comparisons for robustness
-            doc_face_score = 0.5 * live_vs_doc + 0.5 * stored_vs_doc
+            # Use the MAXIMUM of both comparisons
+            # For a genuine match, both should be high, so max gives benefit of the doubt
+            # while still requiring at least one strong match
+            raw_doc_face_score = max(live_vs_doc, stored_vs_doc)
+            print(f"Raw document face score: {raw_doc_face_score:.4f}")
+            
+            # Apply calibration to account for ID-to-live photo differences
+            doc_face_score = calibrate_doc_face_score(raw_doc_face_score)
             doc_face_score = max(0.0, min(1.0, doc_face_score))
+            print(f"Calibrated document face score: {doc_face_score:.4f}")
         
-        # Combined document score: 50% text match + 50% face match
-        doc_score = 0.5 * doc_text_score + 0.5 * doc_face_score
+        # Combined document score: 60% text match + 40% face match
+        doc_score = 0.6 * doc_text_score + 0.4 * doc_face_score
+        print(f"Combined document score (60% text + 40% face): {doc_score:.4f}")
+
     else:
         # No live document provided - use stored document face against live face
         # Document embedding: first 512 dims are face (FaceNet), next 128 are text
         doc_face_portion = stored_doc_embedding[:512]
         
-        # Normalize dimensions
+        # Normalize dimensions and ensure proper normalization
         if len(doc_face_portion) < 512:
             doc_face_portion = np.pad(doc_face_portion, (0, 512 - len(doc_face_portion)))
+        
+        # Ensure doc face is normalized
+        doc_face_norm = np.linalg.norm(doc_face_portion)
+        if doc_face_norm > 0.1:
+            doc_face_portion = doc_face_portion / (doc_face_norm + 1e-8)
         
         live_face_normalized = live_face_embedding[:512] if len(live_face_embedding) >= 512 else live_face_embedding
         if len(live_face_normalized) < 512:
             live_face_normalized = np.pad(live_face_normalized, (0, 512 - len(live_face_normalized)))
         
         # Compare live face with the face from registered ID document
-        doc_face_score = ml_engine.cosine_similarity(live_face_normalized, doc_face_portion)
+        raw_doc_face_score = ml_engine.cosine_similarity(live_face_normalized, doc_face_portion)
+        print(f"Raw stored doc face vs Live face: {raw_doc_face_score:.4f}")
+        
+        # Apply calibration to account for ID-to-live photo differences
+        doc_face_score = calibrate_doc_face_score(raw_doc_face_score)
         doc_face_score = max(0.0, min(1.0, doc_face_score))
+        print(f"Calibrated document face score: {doc_face_score:.4f}")
         
         # Text score defaults to stored (assume valid from registration)
         doc_text_score = 1.0

@@ -484,17 +484,23 @@ class DocumentProcessor:
             new_h = int(h * scale)
             image = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_CUBIC)
         
+        # Apply bilateral filter for noise reduction while preserving edges
+        # This helps with low quality ID photos
+        image = cv2.bilateralFilter(image, d=9, sigmaColor=75, sigmaSpace=75)
+        
         # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
         # This helps with varied lighting in ID photos
+        # Increased clip limit for better contrast on ID photos
         lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
         image = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
         
-        # Light sharpening to improve face detection
-        kernel = np.array([[-0.5, -0.5, -0.5],
-                          [-0.5,  5.0, -0.5],
-                          [-0.5, -0.5, -0.5]])
+        # Lighter sharpening to avoid over-processing
+        # Over-sharpening can distort facial features
+        kernel = np.array([[-0.2, -0.2, -0.2],
+                          [-0.2,  2.6, -0.2],
+                          [-0.2, -0.2, -0.2]])
         image = cv2.filter2D(image, -1, kernel)
         image = np.clip(image, 0, 255).astype(np.uint8)
         
@@ -600,6 +606,13 @@ class DocumentProcessor:
         """
         Process document and return embedding and extracted text.
         
+        The combined embedding format:
+        - First 512 dims: Normalized face embedding (preserved for direct comparison)
+        - Next 128 dims: Normalized text embedding
+        
+        IMPORTANT: Face portion is stored pre-normalized so it can be directly
+        compared with live face embeddings without being affected by text portion.
+        
         Args:
             image_bytes: Raw image bytes (JPEG)
             
@@ -608,25 +621,34 @@ class DocumentProcessor:
         """
         
         text = self.extract_text(image_bytes)
+        print(f"Extracted text from document: {text[:100]}..." if len(text) > 100 else f"Extracted text: {text}")
         
         # Use enhanced document face extraction
         face_embedding = self.extract_face_from_document(image_bytes)
         
-        
+        # Text embedding (already normalized in text_to_embedding)
         text_embedding = self.text_to_embedding(text)
         
         if face_embedding is not None:
+            # IMPORTANT: Keep face embedding normalized separately
+            # This preserves the face vector's magnitude for accurate cosine similarity
+            # when comparing with live face during verification
+            face_normalized = face_embedding / (np.linalg.norm(face_embedding) + 1e-8)
             
-            combined = np.concatenate([face_embedding, text_embedding])
+            # Combine embeddings - face portion stays pre-normalized
+            combined = np.concatenate([face_normalized.astype(np.float32), text_embedding])
+            print(f"Document face embedding extracted successfully")
         else:
-            
+            # No face detected - use zeros
             combined = np.concatenate([
                 np.zeros(512, dtype=np.float32),
                 text_embedding
             ])
+            print(f"Warning: No face detected in document")
         
-        
-        combined = combined / (np.linalg.norm(combined) + 1e-8)
+        # DON'T normalize the combined vector as a whole!
+        # This would scale down the face portion and reduce accuracy.
+        # Each component is already normalized individually.
         
         return combined.astype(np.float32), text
 
